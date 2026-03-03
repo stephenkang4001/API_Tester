@@ -1,6 +1,6 @@
 import json
 import os
-from config import DATA_DIR, HISTORY_FILE
+from config import DATA_DIR, HISTORY_FILE, DATASET_FILE
 
 
 class FileStorage:
@@ -21,3 +21,18 @@ class FileStorage:
     def save_history(self, history: list) -> None:
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
             json.dump(history, f, ensure_ascii=False, indent=2)
+
+    # ── Data Sets ─────────────────────────────────────────────────────────
+    def load_datasets(self) -> list:
+        if not os.path.exists(DATASET_FILE):
+            return []
+        try:
+            with open(DATASET_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            return json.loads(content) if content else []
+        except Exception:
+            return []
+
+    def save_datasets(self, datasets: list) -> None:
+        with open(DATASET_FILE, "w", encoding="utf-8") as f:
+            json.dump(datasets, f, ensure_ascii=False, indent=2)

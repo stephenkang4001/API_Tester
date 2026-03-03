@@ -35,12 +35,15 @@ st.markdown("""
 # ── Session State 초기화 ───────────────────────────────────────────────────
 def _init() -> None:
     defaults: dict = {
-        "current_request":  ApiRequest(),   # 현재 편집 중인 요청
-        "current_response": None,           # 마지막 응답
-        "param_rows":  [{"key": "", "value": ""}],  # Params 에디터 행
-        "header_rows": [{"key": "", "value": ""}],  # Headers 에디터 행
-        "body_draft":  "",                  # Body 에디터 임시 저장
-        "ace_version": 0,                   # 히스토리 로드 시 ace 리셋용
+        "current_request":    ApiRequest(),              # 현재 편집 중인 요청
+        "current_response":   None,                      # 마지막 응답
+        "param_rows":         [{"key": "", "value": ""}],# Params 에디터 행
+        "header_rows":        [{"key": "", "value": ""}],# Headers 에디터 행
+        "body_draft":         "",                        # Body 에디터 임시 저장
+        "ace_version":        0,                         # ace 에디터 강제 리셋용
+        "dataset_name":       "",                        # 현재 Data Set 이름
+        "current_dataset_id": None,                      # 현재 로드된 Data Set ID
+        "ds_version":         0,                         # 이름 입력 위젯 강제 리셋용
     }
     for k, v in defaults.items():
         if k not in st.session_state:

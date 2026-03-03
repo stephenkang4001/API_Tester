@@ -1,26 +1,30 @@
 import streamlit as st
 
 from config import METHOD_COLORS
-from core.history_manager import HistoryManager
+from core.dataset_manager import DataSetManager
 from models.request_model import ApiRequest
 
 
 # ── 내부 헬퍼 ─────────────────────────────────────────────────────────────
 
-def _load_entry(entry: dict) -> None:
-    """히스토리 항목을 session_state 에 복원한다."""
+def _load_dataset(entry: dict) -> None:
+    """Data Set 항목을 session_state 에 복원한다."""
     req = entry["request"]
-    st.session_state.current_request = ApiRequest.from_dict(req)
+    st.session_state.current_request    = ApiRequest.from_dict(req)
+    st.session_state.dataset_name       = entry["name"]
+    st.session_state.current_dataset_id = entry["id"]
+    # 이름 입력 위젯 강제 리셋 (value= 인자가 반영되도록)
+    st.session_state.ds_version = st.session_state.get("ds_version", 0) + 1
 
     params  = req.get("params",  {}) or {}
     headers = req.get("headers", {}) or {}
 
-    # 이전 위젯 state가 남아 value= 인자를 무시하는 버그 방지
+    # 이전 위젯 state 제거 (첫 번째 행이 무시되는 버그 방지)
     for k in list(st.session_state.keys()):
         if k.startswith("param_rows_") or k.startswith("header_rows_"):
             del st.session_state[k]
 
-    st.session_state.param_rows  = (
+    st.session_state.param_rows = (
         [{"key": k, "value": v} for k, v in params.items()]
         or [{"key": "", "value": ""}]
     )
@@ -28,65 +32,61 @@ def _load_entry(entry: dict) -> None:
         [{"key": k, "value": v} for k, v in headers.items()]
         or [{"key": "", "value": ""}]
     )
-    # body 초기화 및 ace editor 강제 리셋
-    st.session_state.body_draft  = req.get("body") or ""
-    st.session_state.ace_version = st.session_state.get("ace_version", 0) + 1
+    st.session_state.body_draft      = req.get("body") or ""
+    st.session_state.ace_version     = st.session_state.get("ace_version", 0) + 1
     st.session_state.current_response = None
-
-
-def _status_info(res: dict) -> tuple[str, str]:
-    """(badge, emoji) 반환"""
-    code  = res.get("status_code", 0)
-    error = res.get("error")
-    if error:
-        return "ERR", "❌"
-    if 200 <= code < 300: return str(code), "✅"
-    if 300 <= code < 400: return str(code), "↩️"
-    if 400 <= code < 500: return str(code), "⚠️"
-    return str(code), "🔴"
 
 
 # ── 퍼블릭 렌더 함수 ──────────────────────────────────────────────────────
 
 def render_sidebar() -> None:
-    hm = HistoryManager()
+    dm = DataSetManager()
 
-    # 헤더
-    col_title, col_btn = st.columns([3, 1])
-    with col_title:
-        st.markdown("## 📋 History")
-    with col_btn:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🗑️", help="히스토리 전체 삭제", use_container_width=True):
-            hm.clear()
-            st.rerun()
+    st.markdown("## 💾 Data Sets")
 
-    history = hm.get_all()
+    datasets = dm.get_all()
 
-    if not history:
-        st.info("히스토리가 없습니다.\nAPI를 호출하면 여기에 기록됩니다.")
+    if not datasets:
+        st.info("저장된 Data Set이 없습니다.\n요청 화면 하단에서 저장하세요.")
         return
 
-    for i, entry in enumerate(history):
-        req = entry["request"]
-        res = entry["response"]
+    current_id = st.session_state.get("current_dataset_id")
 
-        method    = req.get("method", "GET")
-        url       = req.get("url", "")
-        badge, emoji = _status_info(res)
-        color     = METHOD_COLORS.get(method, "#6c757d")
-        short_url = (url[:33] + "…") if len(url) > 35 else url
+    for i, entry in enumerate(datasets):
+        req        = entry.get("request", {})
+        method     = req.get("method", "GET")
+        url        = req.get("url", "")
+        name       = entry.get("name", "(이름 없음)")
+        updated_at = entry.get("updated_at", "")[:16].replace("T", " ")
+        color      = METHOD_COLORS.get(method, "#6c757d")
+        short_url  = (url[:28] + "…") if len(url) > 30 else url
+        is_current = entry["id"] == current_id
 
         with st.container(border=True):
-            # 메서드 뱃지 + 상태 코드
+            # 현재 로드된 Data Set 표시
+            label = f"**{name}**" + (" ✏️" if is_current else "")
+            st.markdown(label)
+
             st.markdown(
                 f'<span style="background:{color};color:#fff;'
                 f'padding:1px 7px;border-radius:4px;'
                 f'font-size:0.72rem;font-weight:bold">{method}</span>'
-                f'&nbsp; {emoji} <b>{badge}</b>',
+                f'&nbsp;<span style="font-size:0.78rem;color:#888">{short_url}</span>',
                 unsafe_allow_html=True,
             )
-            st.caption(short_url)
-            if st.button("불러오기", key=f"hist_load_{i}", use_container_width=True):
-                _load_entry(entry)
-                st.rerun()
+            st.caption(f"업데이트: {updated_at}")
+
+            load_col, del_col = st.columns(2)
+            with load_col:
+                if st.button("불러오기", key=f"ds_load_{i}", use_container_width=True):
+                    _load_dataset(entry)
+                    st.rerun()
+            with del_col:
+                if st.button("삭제", key=f"ds_del_{i}", use_container_width=True):
+                    dm.delete(entry["id"])
+                    # 현재 로드된 항목이 삭제되면 상태 초기화
+                    if entry["id"] == current_id:
+                        st.session_state.current_dataset_id = None
+                        st.session_state.dataset_name       = ""
+                        st.session_state.ds_version = st.session_state.get("ds_version", 0) + 1
+                    st.rerun()

@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit_ace import st_ace
 
 from config import DEFAULT_TIMEOUT, HTTP_METHODS, METHOD_COLORS
-from core.history_manager import HistoryManager
+from core.dataset_manager import DataSetManager
 from core.http_client import send_request
 from models.request_model import ApiRequest
 
@@ -78,7 +78,6 @@ def render_request_builder() -> None:
         )
 
     with c_send:
-        # 메서드 색상으로 버튼 색조 표시 (CSS 활용)
         color = METHOD_COLORS.get(method, "#007bff")
         st.markdown(
             f"<style>.send-btn button{{background:{color}!important;"
@@ -119,7 +118,6 @@ def render_request_builder() -> None:
                 wrap        = True,
                 font_size   = 14,
             )
-            # ace 에디터 값을 session_state 에 항상 동기화
             if body_val is not None:
                 st.session_state.body_draft = body_val
 
@@ -148,5 +146,54 @@ def render_request_builder() -> None:
             response = send_request(request, timeout=DEFAULT_TIMEOUT)
 
         st.session_state.current_response = response
-        HistoryManager().add(request, response)
+        st.rerun()
+
+    # ── Data Set 저장 ─────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("**💾 Data Set**")
+
+    ds_ver = st.session_state.get("ds_version", 0)
+    name_col, add_col, upd_col = st.columns([5, 1.5, 1.5])
+
+    with name_col:
+        ds_name = st.text_input(
+            "Data Set 이름",
+            value=st.session_state.get("dataset_name", ""),
+            key=f"ds_name_{ds_ver}",
+            placeholder="Data Set 이름을 입력하세요",
+            label_visibility="collapsed",
+        )
+        st.session_state.dataset_name = ds_name
+
+    current_ds_id = st.session_state.get("current_dataset_id")
+    name_ok = bool(ds_name.strip())
+
+    with add_col:
+        add_clicked = st.button(
+            "➕ 추가", disabled=not name_ok, use_container_width=True
+        )
+    with upd_col:
+        upd_clicked = st.button(
+            "🔄 업데이트",
+            disabled=not (name_ok and current_ds_id),
+            use_container_width=True,
+        )
+
+    if add_clicked or upd_clicked:
+        body = (
+            st.session_state.get("body_draft", "").strip() or None
+            if not no_body
+            else None
+        )
+        req = ApiRequest(method=method, url=url, params=params, headers=headers, body=body)
+        dm  = DataSetManager()
+
+        if upd_clicked and current_ds_id:
+            dm.update(current_ds_id, ds_name.strip(), req)
+            st.toast(f"'{ds_name.strip()}' 업데이트 완료!")
+        else:
+            new_id = dm.add(ds_name.strip(), req)
+            st.session_state.current_dataset_id = new_id
+            st.toast(f"'{ds_name.strip()}' 추가 완료!")
+
         st.rerun()
