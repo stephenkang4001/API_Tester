@@ -15,6 +15,11 @@ def _load_entry(entry: dict) -> None:
     params  = req.get("params",  {}) or {}
     headers = req.get("headers", {}) or {}
 
+    # 이전 위젯 state가 남아 value= 인자를 무시하는 버그 방지
+    for k in list(st.session_state.keys()):
+        if k.startswith("param_rows_") or k.startswith("header_rows_"):
+            del st.session_state[k]
+
     st.session_state.param_rows  = (
         [{"key": k, "value": v} for k, v in params.items()]
         or [{"key": "", "value": ""}]
