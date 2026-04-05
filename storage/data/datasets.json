@@ -1,0 +1,19 @@
+[
+  {
+    "id": "60781d48-154d-45bd-9c65-5ede9030fe8f",
+    "name": "OPENDART_기업단순재무재표 불러오기",
+    "updated_at": "2026-03-03T12:25:31.249601",
+    "request": {
+      "method": "GET",
+      "url": "https://opendart.fss.or.kr/api/fnlttSinglAcnt.json",
+      "params": {
+        "crtfc_key": "05921ff35fe26e55b4239c4de5bf34d8f4cf3797",
+        "corp_code": "00126380",
+        "bsns_year": "2018",
+        "reprt_code": "11011"
+      },
+      "headers": {},
+      "body": null
+    }
+  }
+]
